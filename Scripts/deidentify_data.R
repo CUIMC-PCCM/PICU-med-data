@@ -1,13 +1,14 @@
 # deidentify_data.R: loads in identified data and substitutes new ID.
 
 'Usage: 
-  deidentify_data.R --path_to_data=<path_to_data> --identity_header=<identity_header> [--project_name=<project_name>] [--debug=<debug>]
+  deidentify_data.R --path_to_data=<path_to_data> --identity_header=<identity_header> --path_to_key_data=<path_to_key_data> [--project_name=<project_name>] [--debug=<debug>]
 
   
   Options:
   -h --help
   --path_to_data=<path_to_data> path to identified data
-  --identity_header=<identity_header> column header with identity in identified data
+  --identity_header=<identity_header> column header with identity in identified data. This should have the same values as "identified_key" column in key_data
+  --path_to_key_data=<path_to_key_data> csv file with two columns. headers should be identified_key and deidentified_key
   --project_name=<project_name> label for analysis. example might "picu" or "IPF" [default: temp_case]
   --debug=<debug> [default: FALSE]
   
@@ -71,9 +72,3 @@ tryCatch(
   }
 )
 
-key_data <- fread("c:/Users/jm4279/OneDrive - cumc.columbia.edu/Research/redcap/IGMGoldsteinPatientT-Jemneurodiagseq_DATA_LABELS_2023-01-10_1740.csv", ) 
-names(key_data) <- make.unique(names(key_data))
-
-key_data_w_id <- key_data %>% mutate(igm_id = case_when(!is.na(`What is the DiagSeq Study ID?`) ~ paste0("Diagseq",`What is the DiagSeq Study ID?`,"f",`What is the DiagSeq Family ID?`), !is.na(`What is the Neuro Study ID?`) ~ paste0("Neuro",`What is the Neuro Study ID?`,"f",`What is the Neuro Family ID?`),  TRUE ~ "NONE"))
-
-fwrite(x = key_data_w_id %>% filter(`Epic MRN` != "") %>% select(identified_key = `Epic MRN`,deidentified_key = igm_id), file = here("Input","identify_key.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)

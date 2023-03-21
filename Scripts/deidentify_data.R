@@ -76,3 +76,4 @@ names(key_data) <- make.unique(names(key_data))
 
 key_data_w_id <- key_data %>% mutate(igm_id = case_when(!is.na(`What is the DiagSeq Study ID?`) ~ paste0("Diagseq",`What is the DiagSeq Study ID?`,"f",`What is the DiagSeq Family ID?`), !is.na(`What is the Neuro Study ID?`) ~ paste0("Neuro",`What is the Neuro Study ID?`,"f",`What is the Neuro Family ID?`),  TRUE ~ "NONE"))
 
+fwrite(x = key_data_w_id %>% filter(`Epic MRN` != "") %>% select(identified_key = `Epic MRN`,deidentified_key = igm_id), file = here("Input","identify_key.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)

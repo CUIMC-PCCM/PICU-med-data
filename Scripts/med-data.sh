@@ -13,3 +13,11 @@ then
 fi
 
 
+########## deidentify med data
+if [[ $1 = "setup_repo" ]]
+then
+
+	Rscript
+
+fi
+

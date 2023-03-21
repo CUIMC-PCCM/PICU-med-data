@@ -60,6 +60,7 @@ time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time())
 initialize_logfile(time_case_prefix, "deidentify_data")
 logr::log_print(arguments)
 
+# load in identified data
 tryCatch(
   {
     identified_data <- fread(arguments$path_to_data)
@@ -75,6 +76,7 @@ tryCatch(
   }
 )
 
+# load in key data
 tryCatch(
   {
     key_data <- fread(arguments$path_to_key_data)
@@ -86,11 +88,10 @@ tryCatch(
   warning=function(w) {
     message('A Warning Occurred loading in key data')
     logr::log_print(w)
-    return(NA)
   }
 )
 
-# remote duplicate keys
+# remvte duplicate keys
 tryCatch(
   {
     duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
@@ -106,7 +107,6 @@ tryCatch(
   warning=function(w) {
     message('A Warning occurred creating deidentified key')
     logr::log_print(w)
-    return(NA)
   }
 )
 
@@ -122,7 +122,6 @@ tryCatch(
   warning=function(w) {
     message('A Warning occurred creating deidentified key')
     logr::log_print(w)
-    return(NA)
   }
 )
 
@@ -132,8 +131,9 @@ tryCatch(
     new_names <- names(merge_df)
     new_names <- new_names[new_names != arguments$identity_header]
     write_df = subset(merge_df, select = c(new_names) )
-    write.csv(x = write_df, file = gzfile(here("Intermediate","deidentified_data.csv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE)
+    write.table(x = write_df, file = gzfile(here("Intermediate","deidentified_data.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
     # write.csv(x = write_df, file = here("Intermediate","deidentified_data.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)
+    # write.table()
   }, 
   error=function(e){
     message("error writing deidentified data")

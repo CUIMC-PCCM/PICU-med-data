@@ -1,5 +1,5 @@
 'Usage: 
-  meds_given  [--project_name=<project_name>] [--debug=<debug>]
+  meds_given.R  [--project_name=<project_name>] [--debug=<debug>]
 
   
   Options:
@@ -15,7 +15,7 @@ library(here)
 library(docopt)
 library(R.utils)
 "%!in%" <- Negate("%in%")
-arguments <- docopt(doc, version = 'deidentify_data.R')
+arguments <- docopt(doc, version = 'meds_given.R')
 
 if(arguments$debug == "TRUE"){
   arguments<-list()
@@ -54,9 +54,10 @@ initialize_logfile<- function(time_case_prefix, function_name){
 # main-----
 # logfile creation
 time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
-initialize_logfile(time_case_prefix, "deidentify_data")
+initialize_logfile(time_case_prefix, "meds_given")
 logr::log_print(arguments)
 
+logr::log_print("Loading in deidentified data")
 tryCatch(
   {
     deidentified_data <- fread(here("Intermediate","deidentified_data.tsv.gz"))
@@ -71,15 +72,49 @@ tryCatch(
   }
 )
 
-visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
-deidentified_data_departmentName_filtered <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+logr::log_print("Filtering and creating med base")
+tryCatch(
+  {
+    visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
+    deidentified_data_departmentName_filtered <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+    
+    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
+    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+  }, 
+  error=function(e){
+    message("error filtering and creating med bases")
+    logr::log_print(e)
+    stop("stoped during filtering and creating med basess")
+  }
+  # ,
+  # warning=function(w) {
+  #   message('A Warning occurred writing deidentified data')
+  #   logr::log_print(w)
+  #   return(NA)
+  # }
+)
 
-med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
-med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
-deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+logr::log_print("writing results")
+tryCatch(
+  {
+    write.table(x = write_df, file = gzfile(here("Intermediate","meds_given.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+  }, 
+  error=function(e){
+    message("error writing meds given")
+    logr::log_print(e)
+    stop("stoped during writing meds given")
+  }
+  # ,
+  # warning=function(w) {
+  #   message('A Warning occurred writing deidentified data')
+  #   logr::log_print(w)
+  #   return(NA)
+  # }
+)
 
-
-
+logr::log_print("Finished")
+logr::log_close()
 
 # string <- "abc123def-456"
 # split_string <- unlist(strsplit(gsub("(.*[^-0-9])?([^-0-9]*)([0-9].*)", "\\2\\3", deidentified_data_departmentName_filtered$marOrder_descrption[1]), "[^0-9]+"))

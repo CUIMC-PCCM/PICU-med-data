@@ -74,11 +74,5 @@ tryCatch(
 key_data <- fread("c:/Users/jm4279/OneDrive - cumc.columbia.edu/Research/redcap/IGMGoldsteinPatientT-Jemneurodiagseq_DATA_LABELS_2023-01-10_1740.csv", ) 
 names(key_data) <- make.unique(names(key_data))
 
-key_data_w_id <- key_data %>% 
-  mutate(igm_id = 
-           case_when(!is.na(`What is the DiagSeq Study ID?`) ~ paste0("Diagseq",`What is the DiagSeq Study ID?`,"f",`What is the DiagSeq Family ID?`),
-                     !is.na(``What is the Neuro Study ID?`) ~ paste0("Neuro",`What is the Neuro Study ID?`,"f",`What is the Neuro Family ID?`), 
-                     TRUE ~ "NONE"))
+key_data_w_id <- key_data %>% mutate(igm_id = case_when(!is.na(`What is the DiagSeq Study ID?`) ~ paste0("Diagseq",`What is the DiagSeq Study ID?`,"f",`What is the DiagSeq Family ID?`), !is.na(`What is the Neuro Study ID?`) ~ paste0("Neuro",`What is the Neuro Study ID?`,"f",`What is the Neuro Family ID?`),  TRUE ~ "NONE"))
 
-
-key_data$`What is the DiagSeq Family ID?`

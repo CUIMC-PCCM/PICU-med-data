@@ -1,0 +1,73 @@
+# deidentify_data.R: loads in identified data and substitutes new ID.
+
+'Usage: 
+  deidentify_data.R --path_to_data=<path_to_data> --identity_header=<identity_header> [--project_name=<project_name>] [--debug=<debug>]
+
+  
+  Options:
+  -h --help
+  --path_to_data=<path_to_data> path to identified data
+  --identity_header=<identity_header> column header with identity in identified data
+  --project_name=<project_name> label for analysis. example might "picu" or "IPF" [default: temp_case]
+  --debug=<debug> [default: FALSE]
+  
+
+' -> doc
+library(tidyverse)
+library(data.table)
+library(here)
+library(docopt)
+arguments <- docopt(doc, version = 'deidentify_data.R')
+
+if(arguments$debug == "TRUE"){
+  arguments<-list()
+  arguments$path_to_data<- here("Input","")
+  arguments$identity_header
+}
+
+#' Initialize log file
+#' @param time_case_prefix time stamp and case group combo to append to beginning of logfile
+#' @param function_name name of function being logged
+initialize_logfile<- function(time_case_prefix, function_name){
+  tryCatch(
+    {
+      dir.create(here("Intermediate"))
+      dir.create(here("Intermediate","Logs"))
+      dir.create(here("Intermediate","Logs",function_name))
+      logr::log_open(here("Intermediate","Logs",function_name, paste0(time_case_prefix,function_name,"_logfile.log")))
+      return(TRUE)
+    },
+    error=function(e) {
+      message('An Error Occurred in creating the logfile')
+      print(e)
+      stop("error")
+    },
+    warning=function(w) {
+      message('A Warning Occurred in creating the logfile')
+      print(w)
+      return(NA)
+    }
+  )
+}
+
+# main-----
+# logfile creation
+time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
+initialize_logfile(time_case_prefix, "deidentify_data")
+logr::log_print(arguments)
+
+tryCatch(
+  {
+    identified_data <- fread(arguments$path_to_data)
+  }, 
+  error=function(e){
+    message("error loading in identified data")
+    logr::log_print(e)
+  },
+  warning=function(w) {
+    message('A Warning Occurred loading in identified data')
+    logr::log_print(w)
+    return(NA)
+  }
+)
+

@@ -19,9 +19,6 @@ arguments <- docopt(doc, version = 'meds_given.R')
 
 if(arguments$debug == "TRUE"){
   arguments<-list()
-  arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_halfRows.txt")
-  arguments$path_to_key_data <- here("Input","identify_key.csv")
-  arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
   arguments$visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
 }
@@ -98,7 +95,7 @@ tryCatch(
 logr::log_print("writing results")
 tryCatch(
   {
-    write.table(x = write_df, file = gzfile(here("Intermediate","meds_given.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    write.table(x = deidentified_data_departmentName_filtered %>% select(deidentified_key,med_base ), file = gzfile(here("Intermediate","meds_given.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
   }, 
   error=function(e){
     message("error writing meds given")

@@ -60,7 +60,7 @@ time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time())
 initialize_logfile(time_case_prefix, "deidentify_data")
 logr::log_print(arguments)
 
-# load in identified data
+logr::log_print("loadingin unidentified data")
 tryCatch(
   {
     identified_data <- fread(arguments$path_to_data)
@@ -76,7 +76,7 @@ tryCatch(
   }
 )
 
-# load in key data
+logr::log_print("loading in key data")
 tryCatch(
   {
     key_data <- fread(arguments$path_to_key_data)
@@ -91,7 +91,7 @@ tryCatch(
   }
 )
 
-# remvte duplicate keys
+logr::log_print("removing duplicate keys")
 tryCatch(
   {
     duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
@@ -110,6 +110,7 @@ tryCatch(
   }
 )
 
+logr::log_print("adding deidentified code")
 tryCatch(
   {
     merge_df <- merge(identified_data_unique,key_data, by.x = arguments$identity_header, by.y = "identified_key", all.x = TRUE)
@@ -125,7 +126,7 @@ tryCatch(
   }
 )
 
-
+logr::log_print("writing results")
 tryCatch(
   {
     new_names <- names(merge_df)
@@ -138,6 +139,7 @@ tryCatch(
   error=function(e){
     message("error writing deidentified data")
     logr::log_print(e)
+    stop("stoped during writing deidentified data")
   }
   # ,
   # warning=function(w) {

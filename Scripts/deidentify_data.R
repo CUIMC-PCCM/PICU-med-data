@@ -23,7 +23,7 @@ arguments <- docopt(doc, version = 'deidentify_data.R')
 
 if(arguments$debug == "TRUE"){
   arguments<-list()
-  # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_halfRows.txt")
+  # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
   arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
   arguments$path_to_key_data <- here("Input","identify_key.csv")
   arguments$identity_header <- "EMPI"
@@ -117,11 +117,11 @@ logr::log_print("identifying mrns missing between identify code and data")
 tryCatch(
   {
     logr::log_print("in MAR and key")
-    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(as.character(key_data$identified_key),as.character(identified_data_unique$EMPI)))))
+    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data$identified_key_char,identified_data_unique$EMPI_char))))
     logr::log_print("in MAR but not in key")
-    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI[identified_data_unique$EMPI %!in% key_data$identified_key ])))
+    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_unique$EMPI_char %!in% key_data$identified_key_char ])))
     logr::log_print("in key but not in mrn")
-    logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key[key_data$identified_key %!in%  identified_data_unique$EMPI])))
+    logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key_char[key_data$identified_key_char %!in%  identified_data_unique$EMPI_char])))
   }, 
   error=function(e){
     message("error creating deidentified key")
@@ -139,6 +139,7 @@ logr::log_print("adding deidentified code")
 tryCatch(
   {
     nrow(merge_df <- merge(identified_data_unique,key_data, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
+    logr::log_print(length(unique(merge_df$EMPI_char)))
     # identified_data$deidentified_id <- sapply(identified_data[[c(arguments$identity_header)]], function(x) key_data$deidentified_key[key_data$identified_key == x])
   }, 
   error=function(e){
@@ -157,6 +158,8 @@ tryCatch(
     new_names <- names(merge_df)
     new_names <- new_names[new_names != arguments$identity_header]
     write_df = subset(merge_df, select = c(new_names) )
+    write_df$EMPI_char <- NULL
+    write_df$identified_key <- NULL
     write.table(x = write_df, file = gzfile(here("Intermediate",paste0(time_case_prefix,"deidentified_data.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
     # write.csv(x = write_df, file = here("Intermediate","deidentified_data.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)
     # write.table()

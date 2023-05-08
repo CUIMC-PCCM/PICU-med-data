@@ -57,7 +57,7 @@ logr::log_print(arguments)
 logr::log_print("Loading in deidentified data")
 tryCatch(
   {
-    deidentified_data <- fread(here("Intermediate","deidentified_data.tsv.gz"))
+    deidentified_data <- fread(here("Intermediate","2023_05_08_09_05_12_PGX_deidentified_data.tsv.gz"))
   }, 
   error=function(e){
     message("error loading in deidentified data")
@@ -95,7 +95,7 @@ tryCatch(
 logr::log_print("writing results")
 tryCatch(
   {
-    write.table(x = deidentified_data_departmentName_filtered %>% select(deidentified_key,med_base ), file = gzfile(here("Intermediate","meds_given.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    write.table(x = deidentified_data_departmentName_filtered %>% select(deidentified_key,med_base ), file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
   }, 
   error=function(e){
     message("error writing meds given")

@@ -23,7 +23,8 @@ arguments <- docopt(doc, version = 'deidentify_data.R')
 
 if(arguments$debug == "TRUE"){
   arguments<-list()
-  arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_halfRows.txt")
+  # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_halfRows.txt")
+  arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
   arguments$path_to_key_data <- here("Input","identify_key.csv")
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
@@ -60,10 +61,11 @@ time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time())
 initialize_logfile(time_case_prefix, "deidentify_data")
 logr::log_print(arguments)
 
-logr::log_print("loadingin unidentified data")
+logr::log_print("loading in unidentified data")
 tryCatch(
   {
     identified_data <- fread(arguments$path_to_data)
+    identified_data[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data$EMPI)
   }, 
   error=function(e){
     message("error loading in identified data")
@@ -80,6 +82,7 @@ logr::log_print("loading in key data")
 tryCatch(
   {
     key_data <- fread(arguments$path_to_key_data)
+    key_data$identified_key_char <- as.character(key_data$identified_key)
   }, 
   error=function(e){
     message("error loading in key data")
@@ -110,10 +113,32 @@ tryCatch(
   }
 )
 
+logr::log_print("identifying mrns missing between identify code and data")
+tryCatch(
+  {
+    logr::log_print("in MAR and key")
+    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(as.character(key_data$identified_key),as.character(identified_data_unique$EMPI)))))
+    logr::log_print("in MAR but not in key")
+    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI[identified_data_unique$EMPI %!in% key_data$identified_key ])))
+    logr::log_print("in key but not in mrn")
+    logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key[key_data$identified_key %!in%  identified_data_unique$EMPI])))
+  }, 
+  error=function(e){
+    message("error creating deidentified key")
+    logr::log_print(e)
+  },
+  warning=function(w) {
+    message('A Warning occurred creating deidentified key')
+    logr::log_print(w)
+  }
+)
+
+
+
 logr::log_print("adding deidentified code")
 tryCatch(
   {
-    merge_df <- merge(identified_data_unique,key_data, by.x = arguments$identity_header, by.y = "identified_key", all.x = TRUE)
+    nrow(merge_df <- merge(identified_data_unique,key_data, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
     # identified_data$deidentified_id <- sapply(identified_data[[c(arguments$identity_header)]], function(x) key_data$deidentified_key[key_data$identified_key == x])
   }, 
   error=function(e){
@@ -132,7 +157,7 @@ tryCatch(
     new_names <- names(merge_df)
     new_names <- new_names[new_names != arguments$identity_header]
     write_df = subset(merge_df, select = c(new_names) )
-    write.table(x = write_df, file = gzfile(here("Intermediate","deidentified_data.tsv.gz")), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    write.table(x = write_df, file = gzfile(here("Intermediate",paste0(time_case_prefix,"deidentified_data.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
     # write.csv(x = write_df, file = here("Intermediate","deidentified_data.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)
     # write.table()
   }, 

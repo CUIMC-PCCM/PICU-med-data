@@ -1,0 +1,5 @@
+INPUT_VARIABLE:
+  identified_data: case_list.txt
+  identified_data_column: sdf
+  identified_data_key: project_name
+  identified_data_key_column: adf

@@ -14,6 +14,7 @@ library(data.table)
 library(here)
 library(docopt)
 library(R.utils)
+library(DescTools)
 "%!in%" <- Negate("%in%")
 arguments <- docopt(doc, version = 'meds_given.R')
 
@@ -107,16 +108,17 @@ logr::log_print("Filtering and creating med base for cdw data")
 tryCatch(
   {
 
-    
-    Cerner Drug: Sodium Cl 0.9% 500 Ml-lvp
-    
+    deidentified_data_cdw_drug_rows <- deidentified_data_cdw %>% filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name == "Completed Pharmacy Order")
+    drug_parse <- strsplit(deidentified_data_cdw_drug_rows$CODED_VALUE_desc, ":")
+    deidentified_data_cdw_drug_rows$drug <- sapply(drug_parse, function(x) trimws(x[2]))
     # visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
     # deidentified_data_departmentName_filtered <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
     
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
-    deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+    med_base <- strsplit(deidentified_data_cdw_drug_rows$drug, split = " ")
+    # med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    deidentified_data_cdw_drug_rows$med_base <- sapply(med_base, function(x) x[1])
     
+    temp <- deidentified_data_cdw_drug_rows %>% group_by(LOCATION_DESC) %>% summarize(countVar = n())
     
     # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
     # deidentified_data_departmentName_filtered_PICU <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector)

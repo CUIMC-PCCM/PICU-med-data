@@ -1,19 +1,24 @@
 # deidentify_data.R: loads in identified data and substitutes new ID.
 
 'Usage: 
-  deidentify_data.R --path_to_data=<path_to_data> --identity_header=<identity_header> --path_to_key_data=<path_to_key_data> [--project_name=<project_name>] [--debug=<debug>]
+  deidentify_data.R --data_file=<data_file> --epic_cdw=<epic_cdw> --key_data_file=<key_data_file> --identity_header=<identity_header> [--project_name=<project_name>] [--debug=<debug>]
 
   
   Options:
   -h --help
-  --path_to_data=<path_to_data> path to identified data
-  --identity_header=<identity_header> column header with identity in identified data. This should have the same values as "identified_key" column in key_data
-  --path_to_key_data=<path_to_key_data> csv file with two columns. headers should be identified_key and deidentified_key
+  --data_file=<data_file> name identified data. Should be located in Input
+  --epic_cdw=<epic_cdw> epic or xdw
+  --key_data_file=<key_data_file> csv file with two columns. headers should be identified_key and deidentified_key. name of file. should be located in Input
+  --identity_header=<identity_header> column header of mrn
   --project_name=<project_name> label for analysis. example might "picu" or "IPF" [default: temp_case]
   --debug=<debug> [default: FALSE]
-  
 
 ' -> doc
+# --identity_header=<identity_header> column header with identity in identified data. This should have the same values as identified_key column in key_data
+#    
+
+# --key_data_file=<key_data_file> csv file with two columns. headers should be identified_key and deidentified_key. name of file. should be located in Input
+#
 library(tidyverse)
 library(data.table)
 library(here)
@@ -24,8 +29,9 @@ arguments <- docopt(doc, version = 'deidentify_data.R')
 if(arguments$debug == "TRUE"){
   arguments<-list()
   # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
-  arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
-  arguments$path_to_key_data <- here("Input","identify_key.csv")
+  arguments$data_file <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
+  arguments$epic_cdw <- "epic"
+  arguments$key_data_file <- "identify_key.csv"
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
 }
@@ -57,14 +63,14 @@ initialize_logfile<- function(time_case_prefix, function_name){
 
 # main-----
 # logfile creation
-time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
+time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_",arguments$epic_cdw,"_")
 initialize_logfile(time_case_prefix, "deidentify_data")
 logr::log_print(arguments)
 
-logr::log_print("loading in unidentified data")
+logr::log_print("loading in identified data")
 tryCatch(
   {
-    identified_data <- fread(arguments$path_to_data)
+    identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
     identified_data[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data$EMPI)
   }, 
   error=function(e){
@@ -81,7 +87,7 @@ tryCatch(
 logr::log_print("loading in key data")
 tryCatch(
   {
-    key_data <- fread(arguments$path_to_key_data)
+    key_data <- fread(here("Input", arguments$key_data_file))
     key_data$identified_key_char <- as.character(key_data$identified_key)
   }, 
   error=function(e){
@@ -160,7 +166,7 @@ tryCatch(
     write_df = subset(merge_df, select = c(new_names) )
     write_df$EMPI_char <- NULL
     write_df$identified_key <- NULL
-    write.table(x = write_df, file = gzfile(here("Intermediate",paste0(time_case_prefix,"deidentified_data.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    write.table(x = write_df %>% filter(!is.na(deidentified_key)), file = gzfile(here("Intermediate",paste0(time_case_prefix,"deidentified_data.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
     # write.csv(x = write_df, file = here("Intermediate","deidentified_data.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)
     # write.table()
   }, 

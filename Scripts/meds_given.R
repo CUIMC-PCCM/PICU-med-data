@@ -20,7 +20,10 @@ arguments <- docopt(doc, version = 'meds_given.R')
 if(arguments$debug == "TRUE"){
   arguments<-list()
   arguments$project_name <- "PGX"
-  arguments$visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
+  arguments$epic_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
+  arguments$epic_filename <- "2023_05_12_14_21_19_picu_wes_pgx_deidentified_data.tsv.gz"
+  arguments$cdw_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
+  arguments$cdw_filename <- "2023_05_12_15_26_30_picu_wes_pgx_cdw_deidentified_data.tsv.gz"
 }
 
 #' Initialize log file
@@ -57,7 +60,8 @@ logr::log_print(arguments)
 logr::log_print("Loading in deidentified data")
 tryCatch(
   {
-    deidentified_data <- fread(here("Intermediate","2023_05_08_09_05_12_PGX_deidentified_data.tsv.gz"))
+    deidentified_data_epic <- fread(here("Intermediate",arguments$epic_filename))
+    deidentified_data_cdw <- read.table(here("Intermediate",arguments$cdw_filename), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
   }, 
   error=function(e){
     message("error loading in deidentified data")
@@ -69,15 +73,56 @@ tryCatch(
   }
 )
 
-logr::log_print("Filtering and creating med base")
+logr::log_print("Filtering and creating med base for epic data")
 tryCatch(
   {
     visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
-    deidentified_data_departmentName_filtered <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+    deidentified_data_departmentName_filtered <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+  
+    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
+    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+    
+    
+    # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
+    # deidentified_data_departmentName_filtered_PICU <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector)
+    # logr::log_print(sprintf("%i picu patients in this data set", length(unique(deidentified_data_departmentName_filtered_PICU$EMPI_char))))
+    # sort(unique(deidentified_data_departmentName_filtered_non_PICU$ADT_departmentName))
+    
+  }, 
+  error=function(e){
+    message("error filtering and creating med bases")
+    logr::log_print(e)
+    stop("stoped during filtering and creating med basess")
+  }
+  # ,
+  # warning=function(w) {
+  #   message('A Warning occurred writing deidentified data')
+  #   logr::log_print(w)
+  #   return(NA)
+  # }
+)
+
+logr::log_print("Filtering and creating med base for cdw data")
+tryCatch(
+  {
+
+    
+    Cerner Drug: Sodium Cl 0.9% 500 Ml-lvp
+    
+    # visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
+    # deidentified_data_departmentName_filtered <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
     
     med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
     med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
     deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+    
+    
+    # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
+    # deidentified_data_departmentName_filtered_PICU <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector)
+    # logr::log_print(sprintf("%i picu patients in this data set", length(unique(deidentified_data_departmentName_filtered_PICU$EMPI_char))))
+    # sort(unique(deidentified_data_departmentName_filtered_non_PICU$ADT_departmentName))
+    
   }, 
   error=function(e){
     message("error filtering and creating med bases")

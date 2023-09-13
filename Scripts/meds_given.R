@@ -14,6 +14,7 @@ library(data.table)
 library(here)
 library(docopt)
 library(R.utils)
+library(DescTools)
 "%!in%" <- Negate("%in%")
 arguments <- docopt(doc, version = 'meds_given.R')
 
@@ -23,7 +24,7 @@ if(arguments$debug == "TRUE"){
   arguments$epic_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
   arguments$epic_filename <- "2023_05_12_14_21_19_picu_wes_pgx_deidentified_data.tsv.gz"
   arguments$cdw_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
-  arguments$cdw_filename <- "2023_05_12_15_26_30_picu_wes_pgx_cdw_deidentified_data.tsv.gz"
+  arguments$cdw_filename <- "2023_05_23_15_38_39.872748_PGX_cdw_deidentified_data.tsv.gz"
 }
 
 #' Initialize log file
@@ -76,13 +77,13 @@ tryCatch(
 logr::log_print("Filtering and creating med base for epic data")
 tryCatch(
   {
-    visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
-    deidentified_data_departmentName_filtered <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+    visit_departmentName_vector <- unlist(strsplit(arguments$epic_visit_departmentName,","))
+    deidentified_data_departmentName_filtered_epic <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
   
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
-    deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
-    
+    # med_base <- strsplit(deidentified_data_departmentName_filtered_epic$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
+    med_base <- strsplit(deidentified_data_departmentName_filtered_epic$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    deidentified_data_departmentName_filtered_epic$med_base <- sapply(med_base, function(x) x[1])
+    deidentified_data_departmentName_filtered_epic$med <- deidentified_data_departmentName_filtered_epic$marOrder_descrption
     
     # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
     # deidentified_data_departmentName_filtered_PICU <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector)
@@ -107,15 +108,24 @@ logr::log_print("Filtering and creating med base for cdw data")
 tryCatch(
   {
 
-    
-    Cerner Drug: Sodium Cl 0.9% 500 Ml-lvp
-    
+    deidentified_data_cdw_drug_rows <- deidentified_data_cdw %>% filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name == "Completed Pharmacy Order")
+    drug_parse <- strsplit(deidentified_data_cdw_drug_rows$CODED_VALUE_desc, ":")
+    deidentified_data_cdw_drug_rows$drug <- sapply(drug_parse, function(x) trimws(x[2]))
     # visit_departmentName_vector <- unlist(strsplit(arguments$visit_departmentName,","))
     # deidentified_data_departmentName_filtered <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
     
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
-    deidentified_data_departmentName_filtered$med_base <- sapply(med_base, function(x) x[1])
+    med_base <- strsplit(deidentified_data_cdw_drug_rows$drug, split = " ")
+    # med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    deidentified_data_cdw_drug_rows$med_base <- sapply(med_base, function(x) x[1])
+    deidentified_data_cdw_drug_rows$med <- deidentified_data_cdw_drug_rows$CODED_VALUE_desc
+
+    deidentified_data_cdw_drug_rows_picu <- deidentified_data_cdw_drug_rows %>% filter(LOCATION_DESC %like any% c("CHILDREN%","CHONY%"), LOC__ROOM %like any% c("91%","90%","11%"))
+    
+    # temp <- deidentified_data_cdw_drug_rows %>% group_by(LOCATION_DESC) %>% summarize(countVar = n())
+    # 
+    # 
+    # temp_loc_des <- temp_filtered %>% group_by(LOCATION_DESC) %>% summarize(countVar = n())
+    # temp_loc_room <- temp_filtered %>% group_by(LOC__ROOM) %>% summarize(countVar = n())
     
     
     # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
@@ -140,7 +150,8 @@ tryCatch(
 logr::log_print("writing results")
 tryCatch(
   {
-    write.table(x = deidentified_data_departmentName_filtered %>% select(deidentified_key,med_base ), file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    combo_med_given <- rbind(deidentified_data_departmentName_filtered_epic %>% select(deidentified_key,med_base, med ), deidentified_data_cdw_drug_rows_picu %>% select(deidentified_key,med_base, med ))
+    write.table(x = combo_med_given, file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
   }, 
   error=function(e){
     message("error writing meds given")

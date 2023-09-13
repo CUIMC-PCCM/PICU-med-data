@@ -80,10 +80,10 @@ tryCatch(
     visit_departmentName_vector <- unlist(strsplit(arguments$epic_visit_departmentName,","))
     deidentified_data_departmentName_filtered_epic <- deidentified_data_epic %>% filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
   
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
-    med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
+    # med_base <- strsplit(deidentified_data_departmentName_filtered_epic$marOrder_descrption, split = "(?<=[a-zA-Z])\\s*(?=[0-9])", perl = TRUE)
+    med_base <- strsplit(deidentified_data_departmentName_filtered_epic$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
     deidentified_data_departmentName_filtered_epic$med_base <- sapply(med_base, function(x) x[1])
-    
+    deidentified_data_departmentName_filtered_epic$med <- deidentified_data_departmentName_filtered_epic$marOrder_descrption
     
     # deidentified_data_departmentName_filtered_non_PICU <- deidentified_data %>% filter(ADT_departmentName %!in% visit_departmentName_vector)
     # deidentified_data_departmentName_filtered_PICU <- deidentified_data %>% filter(ADT_departmentName %in% visit_departmentName_vector)
@@ -117,6 +117,7 @@ tryCatch(
     med_base <- strsplit(deidentified_data_cdw_drug_rows$drug, split = " ")
     # med_base <- strsplit(deidentified_data_departmentName_filtered$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
     deidentified_data_cdw_drug_rows$med_base <- sapply(med_base, function(x) x[1])
+    deidentified_data_cdw_drug_rows$med <- deidentified_data_cdw_drug_rows$CODED_VALUE_desc
 
     deidentified_data_cdw_drug_rows_picu <- deidentified_data_cdw_drug_rows %>% filter(LOCATION_DESC %like any% c("CHILDREN%","CHONY%"), LOC__ROOM %like any% c("91%","90%","11%"))
     
@@ -149,7 +150,7 @@ tryCatch(
 logr::log_print("writing results")
 tryCatch(
   {
-    combo_med_given <- rbind(deidentified_data_departmentName_filtered_epic %>% select(deidentified_key,med_base ), deidentified_data_cdw_drug_rows_picu %>% select(deidentified_key,med_base ))
+    combo_med_given <- rbind(deidentified_data_departmentName_filtered_epic %>% select(deidentified_key,med_base, med ), deidentified_data_cdw_drug_rows_picu %>% select(deidentified_key,med_base, med ))
     write.table(x = combo_med_given, file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
   }, 
   error=function(e){

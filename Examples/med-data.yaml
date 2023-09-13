@@ -1,5 +1,10 @@
 INPUT_VARIABLE:
-  identified_data: case_list.txt
-  identified_data_column: sdf
-  identified_data_key: project_name
-  identified_data_key_column: adf
+  project_name: picu_wes_pgx
+DEIDENTIFY_DATA:
+   data_file: RITM0429582_V1_cdwRx.txt.gz
+   data_file_epic: RITM0429582_V1_epicVisitAdtMar_complete.txt.gz
+   epic_cdw: cdw
+   identity_header: EMPI
+   key_data_file: identify_key.csv
+FILTER_VARIABLE:
+  visit_departmentName: "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"

@@ -1,15 +1,16 @@
 # deidentify_data.R: loads in identified data and substitutes new ID.
 
 'Usage: 
-  deidentify_data.R --data_file=<data_file> --epic_cdw=<epic_cdw> --key_data_file=<key_data_file> --identity_header=<identity_header> [--project_name=<project_name>] [--debug=<debug>]
+  deidentify_data.R --data_file=<data_file> --epic_cdw=<epic_cdw> --key_data_file=<key_data_file> --identity_header=<identity_header> [--project_name=<project_name>] [--data_file_cdw_loc=<data_file_cdw_loc>] [--debug=<debug>]
 
   
   Options:
   -h --help
   --data_file=<data_file> name identified data. Should be located in Input
-  --epic_cdw=<epic_cdw> epic or xdw
+  --epic_cdw=<epic_cdw> epic or cdw
   --key_data_file=<key_data_file> csv file with two columns. headers should be identified_key and deidentified_key. name of file. should be located in Input
   --identity_header=<identity_header> column header of mrn
+  --data_file_cdw_loc=<data_file_cdw_loc> name of location data for CDW [default: NA]
   --project_name=<project_name> label for analysis. example might "picu" or "IPF" [default: temp_case]
   --debug=<debug> [default: FALSE]
 
@@ -23,14 +24,19 @@ library(tidyverse)
 library(data.table)
 library(here)
 library(docopt)
+library(parallel)
+library(DescTools)
+library(logr)
 "%!in%" <- Negate("%in%")
 arguments <- docopt(doc, version = 'deidentify_data.R')
 
 if(arguments$debug == "TRUE"){
   arguments<-list()
   # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
-  arguments$data_file <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
-  arguments$epic_cdw <- "epic"
+  # arguments$data_file <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
+  arguments$data_file <- "RITM0429582_V1_cdwRx.txt.gz"
+  arguments$data_file_cdw_loc <- "RITM0429582_V1_cdwVisitDetailForRx.txt.gz"
+  arguments$epic_cdw <- "cdw"
   arguments$key_data_file <- "identify_key.csv"
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
@@ -70,7 +76,14 @@ logr::log_print(arguments)
 logr::log_print("loading in identified data")
 tryCatch(
   {
-    identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
+    if(arguments$epic_cdw == "epic"){
+      identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
+    } else {
+      identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE) %>% 
+        mutate(year = substring(PRIMARY_TIME, 1, 4), month = substring(PRIMARY_TIME, 6, 7), day = substr(PRIMARY_TIME, 9, 10), hr = substring(PRIMARY_TIME, 12, 13), min = substring(PRIMARY_TIME, 15, 16), sec = paste0(substring(PRIMARY_TIME, 18, 19),
+                                                                                                                                                                                                                         substring(PRIMARY_TIME, 21, 26))) %>% mutate(time_stamp=paste0(year,month,day,hr,min,sec)) %>% 
+        filter(PRIMARY_TIME != "",CODED_VALUE_desc %like% "Cerner Drug:%") %>% arrange(time_stamp)
+    }
     identified_data[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data$EMPI)
   }, 
   error=function(e){
@@ -83,6 +96,42 @@ tryCatch(
     return(NA)
   }
 )
+
+if(arguments$epic_cdw == "cdw"){
+  logr::log_print("adding room number for cdw data")
+  tryCatch(
+    {
+      cdw_loc <- read.table(here("Input",arguments$data_file_cdw_loc), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)  %>% 
+        mutate(year = substring(LOC__DATE, 1, 4), month = substring(LOC__DATE, 6, 7), day = substr(LOC__DATE, 9, 10), hr = substring(LOC__DATE, 12, 13), min = substring(LOC__DATE, 15, 16),  sec = paste0(substring(LOC__DATE, 18, 19),substring(LOC__DATE, 21, 26))) %>% 
+        mutate(time_stamp=paste0(year,month,day,hr,min,sec)) %>% filter(LOC__DATE != "") %>% arrange(time_stamp)
+      cdw_loc[[paste0(arguments$identity_header,"_char")]] <- as.character(cdw_loc$EMPI)
+      # unique_empi_var <- sort(unique(cdw_loc$EMPI_char))
+      
+      x <- function(i,data_df, loc_df){
+        index_gt <- (data_df$time_stamp[i] >= loc_df$time_stamp) & data_df$EMPI_char[i] == loc_df$EMPI_char
+        max_gt <- max(which(index_gt == TRUE))
+        return(loc_df$LOC__ROOM[max_gt])
+      }
+      
+      room_list <- mclapply(1:nrow(identified_data), function(y) x(y,identified_data,cdw_loc), mc.cores = 20 )
+      identified_data$LOC__ROOM <- unlist(room_list)
+      # for(i in 1:nrow(identified_data)){
+      #   index_gt <- (identified_data$time_stamp[i] >= cdw_loc$time_stamp) & identified_data$EMPI_char[i] == cdw_loc$EMPI_char
+      #   max_gt <- max(which(index_gt == TRUE))
+      #   identified_data$LOC__ROOM[i] <- cdw_loc$LOC__ROOM[max_gt]
+      # }
+    }, 
+    error=function(e){
+      message("error loading in identified data")
+      logr::log_print(e)
+    },
+    warning=function(w) {
+      message('A Warning Occurred loading in identified data')
+      logr::log_print(w)
+      return(NA)
+    }
+  )
+}
 
 logr::log_print("loading in key data")
 tryCatch(

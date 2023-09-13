@@ -2,6 +2,7 @@ library(tidyverse)
 library(data.table)
 library(here)
 library(docopt)
+library(DescTools)
 "%!in%" <- Negate("%in%")
 
 epic_data <- fread(here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"),quote = "")
@@ -18,6 +19,7 @@ cdw_data_2 <- fread(here("Input","RITM0429582_V1_cdwVisitDetailForRx.txt.gz"), f
 cdw_data_2$EMPI_char <- as.character(cdw_data_2$EMPI)
 cdw_data_14 <- read.delim(here("Input","RITM0429582_V1_cdwRx.txt.gz"), stringsAsFactor = FALSE, quote = "")
 cdw_data_15 <- readLines(here("Input","RITM0429582_V1_cdwRx.txt.gz"))
+cdw_loc <- 
 
 cdw_data_15[17]
 
@@ -120,3 +122,64 @@ cdw_data_2b <- read.table(here("Input","RITM0429582_V2B","RITM0429582_V2B_cdwRx.
 cdw_data_2b <- read.table(here("Input","RITM0429582_V2B","RITM0429582_V2B_cdwRx.txt"), header = TRUE, sep = "|", quote = "", fill = TRUE)
 cdw_data_2c <- readLines(here("Input","RITM0429582_V2B","RITM0429582_V2B_cdwRx.txt"))
 nrow(temp <- cdw_data_2b %>% filter(EMPI == 1102606022))
+
+
+cdw_data_1 <- read.table(here("Input","RITM0429582_V1_cdwRx.txt.gz"), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
+cdw_loc_1 <- read.table(here("Input","RITM0429582_V1_cdwVisitDetailForRx.txt.gz"), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
+sort(unique(cdw_loc_1$LOC__ROOM))
+cdw_loc_1$LOC__DATE[1]
+cdw_data_1$LOC__ROOM <- ""
+
+cdw_loc_1$LOC__ROOM_CHAR <- as.character(cdw_loc_1$LOC__ROOM)
+cdw_loc_1_inpatient <- cdw_loc_1 %>% filter( EMPI == "1002612862")  #PATIENT_CLASS_DESCRIPTION == "In-patient", , ) LOC__LOCATION_DESC %like any% c("%CHONY%", "CHILDRENS%","CHIDRENS%"), LOC__ROOM_CHAR %like any% c("1%", "9%"),
+
+sort(unique(cdw_loc_1_inpatient$LOC__DATE))
+sort(unique(cdw_loc_1_inpatient$LOC__ROOM))
+cdw_data_1_temp <- cdw_data_1  %>% filter(EMPI == "1002612862")
+sort(unique(cdw_data_1_temp$PRIMARY_TIME))
+
+
+cdw_loc_1_inpatient$LOC__ROOM_CHAR <- as.character(cdw_loc_1_inpatient$LOC__ROOM)
+
+temp <- cdw_loc_1_inpatient %>% filter(LOC__ROOM > 1100)
+
+epmi_loc_df <- cdw_loc_1 %>% filter(EMPI == cdw_data_1$EMPI[1])
+temp_mrn <- cdw_data_1$EMPI[1]
+epmi_data_df$cd
+# for(i in 1:nrow(cdw_data_1){
+#   (epmi_data_df$ADMIT_DATE == epmi_loc_df$ADMIT_DATE[i])
+# 
+# }
+epmi_data_df <- cdw_data_1 %>% filter(EMPI == temp_mrn) %>% mutate(LOC__ROOM = case_when())
+
+add_rm_number <-function(row_var){
+  
+}
+
+temp_mrn <- "1002612862" 
+temp_data <- cdw_data_1 %>% mutate(year = substring(PRIMARY_TIME, 1, 4),
+                                   month = substring(PRIMARY_TIME, 6, 7),
+                                   day = substr(PRIMARY_TIME, 9, 10),
+                                   hr = substring(PRIMARY_TIME, 12, 13),
+                                   min = substring(PRIMARY_TIME, 15, 16),
+                                   sec = paste0(substring(PRIMARY_TIME, 18, 19),substring(PRIMARY_TIME, 21, 26))) %>% 
+  mutate(time_stamp=paste0(year,month,day,hr,min,sec)) %>% filter(EMPI == temp_mrn, PRIMARY_TIME != "") %>% arrange(time_stamp)
+temp_loc <- cdw_loc_1 %>% mutate(year = substring(LOC__DATE, 1, 4),
+                                 month = substring(LOC__DATE, 6, 7),
+                                 day = substr(LOC__DATE, 9, 10),
+                                 hr = substring(LOC__DATE, 12, 13),
+                                 min = substring(LOC__DATE, 15, 16),
+                                 sec = paste0(substring(LOC__DATE, 18, 19),substring(LOC__DATE, 21, 26))) %>% 
+  mutate(time_stamp=paste0(year,month,day,hr,min,sec))  %>% filter(EMPI == temp_mrn, LOC__DATE != "") %>% arrange(time_stamp)
+
+temp_data$LOC__ROOM
+for(i in 1:nrow(temp_data)){
+  index_gt <- (temp_data$time_stamp[i] >= temp_loc$time_stamp)
+  index_lt <- (temp_data$time_stamp[i] < temp_loc$time_stamp)
+  max_gt <- max(which(index_gt == TRUE))
+  min_lt <- min(which(index_lt == TRUE))
+  temp_data$LOC__ROOM[i] <- temp_loc$LOC__ROOM[max_gt]
+  # temp_loc$LOC__ROOM[min_lt]
+  
+}
+temp_data[index_gt,]

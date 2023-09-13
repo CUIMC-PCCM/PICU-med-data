@@ -42,10 +42,25 @@ if(arguments$debug == "TRUE"){
   arguments$project_name <- "PGX"
 }
 
-#' Initialize log file
-#' @param time_case_prefix time stamp and case group combo to append to beginning of logfile
-#' @param function_name name of function being logged
-initialize_logfile<- function(time_case_prefix, function_name){
+#' Initialize a Logfile
+#'
+#' This function creates the necessary directories and initializes a log file with the specified prefix and function name.
+#'
+#' @param time_case_prefix Character. Prefix for the log filename which may often represent the time or case.
+#' @param function_name Character. Name of the function for which the log file is being created. This helps categorize logs by function.
+#'
+#' @return TRUE if the log file was successfully created, NA otherwise.
+#' @details If there's any error in creating the logfile, the function stops with a message, and if there's a warning, it will be printed out.
+#'
+#' @examples
+#' \dontrun{
+#' initialize_logfile("2023_09_13_", "myFunctionName")
+#' }
+#'
+#' @importFrom logr log_open
+#' @importFrom here here
+#' @export
+initialize_logfile <- function(time_case_prefix, function_name){
   dir.create(here("Intermediate"))
   dir.create(here("Intermediate","Logs"))
   dir.create(here("Intermediate","Logs",function_name))
@@ -113,7 +128,19 @@ if(arguments$epic_cdw == "cdw"){
         return(loc_df$LOC__ROOM[max_gt])
       }
       
-      room_list <- mclapply(1:nrow(identified_data), function(y) x(y,identified_data,cdw_loc), mc.cores = 20 )
+      # room_list <- mclapply(1:nrow(identified_data), function(y) x(y,identified_data,cdw_loc), mc.cores = 20 )
+      # Create a cluster with the desired number of cores
+      # For example, use detectCores() to use all available cores
+      cl <- makeCluster(detectCores()-2)
+      
+      # Export the necessary objects to all the cluster nodes
+      clusterExport(cl, list("x", "identified_data", "cdw_loc"))
+      
+      # Use parLapply for parallel processing
+      room_list <- parLapply(cl, 1:nrow(identified_data), function(y) x(y, identified_data, cdw_loc))
+      
+      # Stop the cluster when done
+      stopCluster(cl)
       identified_data$LOC__ROOM <- unlist(room_list)
       # for(i in 1:nrow(identified_data)){
       #   index_gt <- (identified_data$time_stamp[i] >= cdw_loc$time_stamp) & identified_data$EMPI_char[i] == cdw_loc$EMPI_char
@@ -133,21 +160,15 @@ if(arguments$epic_cdw == "cdw"){
   )
 }
 
-logr::log_print("loading in key data")
 tryCatch(
   {
     key_data <- fread(here("Input", arguments$key_data_file))
     key_data$identified_key_char <- as.character(key_data$identified_key)
-  }, 
-  error=function(e){
-    message("error loading in key data")
-    logr::log_print(e)
-  },
-  warning=function(w) {
-    message('A Warning Occurred loading in key data')
-    logr::log_print(w)
-  }
-)
+    logr::log_print("success loading in key data")
+  }, error = function(e) {
+    message("An error occurred loading in key data: ", e$message)
+    quit("no", status = 10)
+})
 
 logr::log_print("removing duplicate keys")
 tryCatch(

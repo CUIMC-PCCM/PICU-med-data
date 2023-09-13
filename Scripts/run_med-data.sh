@@ -1,6 +1,6 @@
 #\!/bin/bash
 # 2023-03-13
-# med management
+# med management by josh and andy
 
 project_name=$(cat ./Input/med-data.yaml | shyaml get-value INPUT_VARIABLE.project_name)
 echo "project name is $project_name"

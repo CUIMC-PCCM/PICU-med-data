@@ -18,7 +18,6 @@ then
   exit
 fi
 
-
 project_name=$(cat ./Input/med-data.yaml | shyaml get-value INPUT_VARIABLE.project_name)
 echo "project name is $project_name"
 ########## deidentify med data

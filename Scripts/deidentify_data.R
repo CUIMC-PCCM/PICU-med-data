@@ -56,6 +56,7 @@ if(arguments$debug == "TRUE"){
 # Create time_stamp
 time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
 
+# Creating log file
 tryCatch({
   initialize_logfile(arguments, "deidentify_data")
 }, error = function(e) {
@@ -63,8 +64,8 @@ tryCatch({
   quit("no", status = 10)
 })
 
+logr::log_print("loading in deidentified data")
 tryCatch({
-  logr::log_print("loading in deidentified data")
   if(arguments$data_file_epic != "NA"){
     logr::log_print("load in epic data")
     identified_data_epic <- read.table(here("Input",arguments$data_file_epic), 
@@ -120,8 +121,8 @@ tryCatch({
   quit("no", status = 10)
 })
 
+logr::log_print("loading in key data")
 tryCatch({
-  logr::log_print("loading in key data")
   key_data <- fread(here("Input", arguments$key_data_file))
   key_data$identified_key_char <- as.character(key_data$identified_key)
   logr::log_print("success loading in key data")
@@ -130,8 +131,8 @@ tryCatch({
   quit("no", status = 10)
 })
 
+logr::log_print("removing duplicate keys")
 tryCatch({
-  logr::log_print("removing duplicate keys")
   key_data_unique <- key_data %>% filter(!is.na(identified_key), !is.na(deidentified_key)) %>% distinct(identified_key, .keep_all = TRUE)
   # unique_keys <- length(unique(key_data_unique$identified_key))
   # duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
@@ -145,26 +146,17 @@ tryCatch({
 })
 
 logr::log_print("identifying mrns missing between identify code and data")
-tryCatch(
-  {
-    logr::log_print("in MAR and key")
-    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data_unique$identified_key_char,identified_data_cdw$EMPI_char))))
-    logr::log_print("in MAR but not in key")
-    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_cdw$EMPI_char %!in% key_data$identified_key_char ])))
-    logr::log_print("in key but not in mrn")
-    logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key_char[key_data$identified_key_char %!in%  identified_data_unique$EMPI_char])))
-  }, 
-  error=function(e){
-    message("error creating deidentified key")
-    logr::log_print(e)
-  },
-  warning=function(w) {
-    message('A Warning occurred creating deidentified key')
-    logr::log_print(w)
-  }
-)
-
-
+tryCatch({
+  logr::log_print("in MAR and key")
+  logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data_unique$identified_key_char,identified_data_cdw$EMPI_char))))
+  logr::log_print("in MAR but not in key")
+  logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_cdw$EMPI_char %!in% key_data$identified_key_char ])))
+  logr::log_print("in key but not in mrn")
+  logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key_char[key_data$identified_key_char %!in%  identified_data_unique$EMPI_char])))
+}, error = function(e) {
+  message("An error identifying mrns missing between identify code and data: ", e$message)
+  quit("no", status = 10)
+})
 
 logr::log_print("adding deidentified code")
 tryCatch(

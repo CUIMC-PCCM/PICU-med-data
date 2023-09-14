@@ -36,8 +36,7 @@ if(arguments$debug == "TRUE"){
   arguments$data_file_epic <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
   arguments$data_file_cdw <- "RITM0429582_V1_cdwRx.txt.gz"
   arguments$data_file_cdw_loc <- "RITM0429582_V1_cdwVisitDetailForRx.txt.gz"
-  # arguments$epic_cdw <- "cdw"
-  arguments$key_data_file <- "2023_09_13_17_04_04_identity_key.csv"
+  arguments$key_data_file <- "2023_09_14_17_29_34.859167_identity_key.csv"
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
 }

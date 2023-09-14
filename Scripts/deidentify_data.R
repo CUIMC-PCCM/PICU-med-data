@@ -33,11 +33,10 @@ arguments <- docopt(doc, version = 'deidentify_data.R')
 if(arguments$debug == "TRUE"){
   arguments<-list()
   # arguments$path_to_data <- here("Input","RITM0429582_V1_epicVisitAdtMar_complete.txt.gz")
-  # arguments$data_file <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
-  arguments$data_file <- "RITM0429582_V1_cdwRx.txt.gz"
+  arguments$data_file_epic <- "RITM0429582_V1_epicVisitAdtMar_complete.txt.gz"
+  arguments$data_file_cdw <- "RITM0429582_V1_cdwRx.txt.gz"
   arguments$data_file_cdw_loc <- "RITM0429582_V1_cdwVisitDetailForRx.txt.gz"
-  arguments$epic_cdw <- "cdw"
-  arguments$key_data_file <- "identify_key.csv"
+  arguments$key_data_file <- "2023_09_14_17_29_34.859167_identity_key.csv"
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
 }
@@ -84,22 +83,25 @@ initialize_logfile <- function(time_case_prefix, function_name){
 
 # main-----
 # logfile creation
-time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_",arguments$epic_cdw,"_")
+time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
 initialize_logfile(time_case_prefix, "deidentify_data")
 logr::log_print(arguments)
 
-logr::log_print("loading in identified data")
 tryCatch(
   {
-    if(arguments$epic_cdw == "epic"){
-      identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
-    } else {
-      identified_data <- read.table(here("Input",arguments$data_file), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE) %>% 
+    if(arguments$data_file_epic != "NA"){
+      logr::log_print("load in epic data")
+      identified_data_epic <- read.table(here("Input",arguments$data_file_epic), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE)
+      identified_data_epic[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data_epic$EMPI)
+    } 
+    if(arguments$data_file_cdw != "NA"){
+      logr::log_print("load in cdw data")
+      identified_data_cdw <- read.table(here("Input",arguments$data_file_cdw), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE) %>% 
         mutate(year = substring(PRIMARY_TIME, 1, 4), month = substring(PRIMARY_TIME, 6, 7), day = substr(PRIMARY_TIME, 9, 10), hr = substring(PRIMARY_TIME, 12, 13), min = substring(PRIMARY_TIME, 15, 16), sec = paste0(substring(PRIMARY_TIME, 18, 19),
                                                                                                                                                                                                                          substring(PRIMARY_TIME, 21, 26))) %>% mutate(time_stamp=paste0(year,month,day,hr,min,sec)) %>% 
         filter(PRIMARY_TIME != "",CODED_VALUE_desc %like% "Cerner Drug:%") %>% arrange(time_stamp)
+      identified_data_cdw[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data_cdw$EMPI)
     }
-    identified_data[[paste0(arguments$identity_header,"_char")]] <- as.character(identified_data$EMPI)
   }, 
   error=function(e){
     message("error loading in identified data")
@@ -123,25 +125,36 @@ if(arguments$epic_cdw == "cdw"){
       # unique_empi_var <- sort(unique(cdw_loc$EMPI_char))
       
       x <- function(i,data_df, loc_df){
-        index_gt <- (data_df$time_stamp[i] >= loc_df$time_stamp) & data_df$EMPI_char[i] == loc_df$EMPI_char
-        max_gt <- max(which(index_gt == TRUE))
-        return(loc_df$LOC__ROOM[max_gt])
+        tryCatch({
+          index_gt <- (data_df$time_stamp[i] >= loc_df$time_stamp) & data_df$EMPI_char[i] == loc_df$EMPI_char
+          max_gt <- max(which(index_gt == TRUE))
+          return(loc_df$LOC__ROOM[max_gt])
+        }, error = function(e) {
+          message("Caught an error returning room location: ", e$message)
+          # quit("no", status = 10)
+        })
       }
       
-      # room_list <- mclapply(1:nrow(identified_data), function(y) x(y,identified_data,cdw_loc), mc.cores = 20 )
-      # Create a cluster with the desired number of cores
-      # For example, use detectCores() to use all available cores
-      cl <- makeCluster(detectCores()-2)
-      
-      # Export the necessary objects to all the cluster nodes
-      clusterExport(cl, list("x", "identified_data", "cdw_loc"))
-      
-      # Use parLapply for parallel processing
-      room_list <- parLapply(cl, 1:nrow(identified_data), function(y) x(y, identified_data, cdw_loc))
-      
-      # Stop the cluster when done
-      stopCluster(cl)
-      identified_data$LOC__ROOM <- unlist(room_list)
+      room_list <- mclapply(1:nrow(identified_data_cdw), function(y) x(y,identified_data_cdw,cdw_loc), mc.cores = detectCores(logical = FALSE)-1 )
+      # room_list <- mclapply(1:19, function(y) x(y,identified_data_cdw,cdw_loc), mc.cores = detectCores()-1 )
+      # room_list <- lapply(1:10, function(y) x(y,identified_data_cdw,cdw_loc))
+      # room_list <- lapply(1:nrow(identified_data_cdw), function(y) x(y,identified_data_cdw,cdw_loc))
+      # # Create a cluster with the desired number of cores
+      # # For example, use detectCores() to use all available cores
+      # logr::log_print("create a cluster")
+      # cl <- makeCluster(detectCores()-2)
+      # 
+      # # Export the necessary objects to all the cluster nodes
+      # logr::log_print("export object")
+      # clusterExport(cl, list("x", "identified_data", "cdw_loc"))
+      # 
+      # # Use parLapply for parallel processing
+      # logr::log_print("use partLapply")
+      # room_list <- parLapply(cl, 1:nrow(identified_data), function(y) x(y, identified_data, cdw_loc))
+      # 
+      # # Stop the cluster when done
+      # stopCluster(cl)
+      identified_data_cdw$LOC__ROOM <- unlist(room_list)
       # for(i in 1:nrow(identified_data)){
       #   index_gt <- (identified_data$time_stamp[i] >= cdw_loc$time_stamp) & identified_data$EMPI_char[i] == cdw_loc$EMPI_char
       #   max_gt <- max(which(index_gt == TRUE))
@@ -173,11 +186,13 @@ tryCatch(
 logr::log_print("removing duplicate keys")
 tryCatch(
   {
-    duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
-    location_unique_keys <- as.character(identified_data[[c(arguments$identity_header)]]) %!in% as.character(duplicate_keys)
-    identified_data_unique <- identified_data[location_unique_keys , ]
-    nrow(identified_data)
-    nrow(identified_data_unique)
+    key_data_unique <- key_data %>% filter(!is.na(identified_key), !is.na(deidentified_key)) %>% distinct(identified_key, .keep_all = TRUE)
+    # unique_keys <- length(unique(key_data_unique$identified_key))
+    # duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
+    # location_unique_keys <- as.character(identified_data[[c(arguments$identity_header)]]) %!in% as.character(duplicate_keys)
+    # identified_data_unique <- identified_data[location_unique_keys , ]
+    nrow(key_data_unique)
+    # nrow(identified_data_unique)
   }, 
   error=function(e){
     message("error creating deidentified key")
@@ -193,9 +208,9 @@ logr::log_print("identifying mrns missing between identify code and data")
 tryCatch(
   {
     logr::log_print("in MAR and key")
-    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data$identified_key_char,identified_data_unique$EMPI_char))))
+    logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data_unique$identified_key_char,identified_data_epic$EMPI_char))))
     logr::log_print("in MAR but not in key")
-    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_unique$EMPI_char %!in% key_data$identified_key_char ])))
+    logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_cdw$EMPI_char %!in% key_data$identified_key_char ])))
     logr::log_print("in key but not in mrn")
     logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key_char[key_data$identified_key_char %!in%  identified_data_unique$EMPI_char])))
   }, 

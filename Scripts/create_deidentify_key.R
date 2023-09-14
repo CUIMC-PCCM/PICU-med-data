@@ -35,4 +35,4 @@ igm_redcap <- fread(here("Input","IGMGoldsteinPatientT-CHONYPICUmanual_DATA_LABE
 diagseq <- sprintf("Diagseq%sf%s",igm_redcap$`What is the DiagSeq Study ID?`,igm_redcap$`What is the DiagSeq Family ID?`)
 neuro <- sprintf("Neuro%sf%s",igm_redcap$`What is the Neuro Study ID?`,igm_redcap$`What is the Neuro Family ID?`)
 igm_redcap$sample_internal_name <- ifelse(neuro != "NeuroNAfNA",neuro,diagseq)
-write.csv(igm_redcap %>% select(identified_key = MRN, deidentified_key = sample_internal_name), file = here("Intermediate",paste0(time_case_prefix, "identity_key.csv")), quote = FALSE, row.names = FALSE)
+write.csv(igm_redcap %>% select(identified_key = `Epic MRN`, deidentified_key = sample_internal_name), file = here("Intermediate",paste0(time_case_prefix, "identity_key.csv")), quote = FALSE, row.names = FALSE)

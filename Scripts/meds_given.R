@@ -15,6 +15,7 @@ library(here)
 library(docopt)
 library(R.utils)
 library(DescTools)
+source(here("Scripts","useful_functions.R"))
 "%!in%" <- Negate("%in%")
 arguments <- docopt(doc, version = 'meds_given.R')
 
@@ -27,36 +28,17 @@ if(arguments$debug == "TRUE"){
   arguments$cdw_filename <- "2023_05_23_15_38_39.872748_PGX_cdw_deidentified_data.tsv.gz"
 }
 
-#' Initialize log file
-#' @param time_case_prefix time stamp and case group combo to append to beginning of logfile
-#' @param function_name name of function being logged
-initialize_logfile<- function(time_case_prefix, function_name){
-  dir.create(here("Intermediate"))
-  dir.create(here("Intermediate","Logs"))
-  dir.create(here("Intermediate","Logs",function_name))
-  tryCatch(
-    {
-      logr::log_open(here("Intermediate","Logs",function_name, paste0(time_case_prefix,function_name,"_logfile.log")))
-      return(TRUE)
-    },
-    error=function(e) {
-      message('An Error Occurred in creating the logfile')
-      print(e)
-      stop("error")
-      return(NA)
-    },
-    warning=function(w) {
-      message('A Warning Occurred in creating the logfile')
-      print(w)
-    }
-  )
-}
-
-# main-----
-# logfile creation
+# Create time_stamp
 time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
-initialize_logfile(time_case_prefix, "meds_given")
-logr::log_print(arguments)
+
+# Creating log file
+tryCatch({
+  initialize_logfile(time_case_prefix, "meds_given")
+  logr::log_print(arguments)
+}, error = function(e) {
+  message("An error occurred opening the log file: ", e$message)
+  quit("no", status = 10)
+})
 
 logr::log_print("Loading in deidentified data")
 tryCatch(
@@ -166,9 +148,13 @@ tryCatch(
   # }
 )
 
-logr::log_print("Finished")
-logr::log_close()
-
+tryCatch({
+  logr::log_print("Finished")
+  logr::log_close()
+}, error = function(e) {
+  message("Caught an error closing the log file: ", e$message)
+  quit("no", status = 10)
+})
 # string <- "abc123def-456"
 # split_string <- unlist(strsplit(gsub("(.*[^-0-9])?([^-0-9]*)([0-9].*)", "\\2\\3", deidentified_data_departmentName_filtered$marOrder_descrption[1]), "[^0-9]+"))
 # 

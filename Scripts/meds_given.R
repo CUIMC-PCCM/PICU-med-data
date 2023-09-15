@@ -71,33 +71,42 @@ tryCatch({
   if(arguments$epic_filename != "NA"){
     logr::log_print("Filtering and creating med base for epic data")
     visit_departmentName_vector <- unlist(strsplit(arguments$epic_visit_departmentName,","))
+    logr::log_print("Filtering for meds that were actually given and in the units specific")
     deidentified_data_departmentName_filtered_epic <- deidentified_data_epic %>% 
       filter(ADT_departmentName %in% visit_departmentName_vector, mar_actionName == "Given")
+    logr::log_print("Creating a med base to simplify med naming. this likely needs work as it is not currently useful. A master conversion list would be better")
     med_base <- strsplit(deidentified_data_departmentName_filtered_epic$marOrder_descrption, "(?<!-)[0-9]", perl=TRUE)
     deidentified_data_departmentName_filtered_epic$med_base <- sapply(med_base, function(x) x[1])
     deidentified_data_departmentName_filtered_epic$med <- deidentified_data_departmentName_filtered_epic$marOrder_descrption
   }
   if(arguments$cdw_filename != "NA"){
     logr::log_print("Filtering and creating med base for cdw data")
-    deidentified_data_cdw_drug_rows <- deidentified_data_cdw %>% 
-      filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name == "Completed Pharmacy Order")
-    drug_parse <- strsplit(deidentified_data_cdw_drug_rows$CODED_VALUE_desc, ":")
-    deidentified_data_cdw_drug_rows$drug <- sapply(drug_parse, function(x) trimws(x[2]))
-    med_base <- strsplit(deidentified_data_cdw_drug_rows$drug, split = " ")
-    deidentified_data_cdw_drug_rows$med_base <- sapply(med_base, function(x) x[1])
-    deidentified_data_cdw_drug_rows$med <- deidentified_data_cdw_drug_rows$CODED_VALUE_desc
-    deidentified_data_cdw_drug_rows_picu <- deidentified_data_cdw_drug_rows %>% filter(LOCATION_DESC %like any% c("CHILDREN%","CHONY%"), LOC__ROOM %like any% c("91%","90%","11%"))
+    logr::log_print("Filtering for meds that were actually given and in the units specific")
+    deidentified_data_departmentName_filtered_cdw <- deidentified_data_cdw %>% 
+      filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name == "Completed Pharmacy Order",LOCATION_DESC %like any% c("CHILDREN%","CHONY%"), LOC__ROOM %like any% c("91%","90%","11%"))
+    logr::log_print("Parsing out drug name")
+    drug_parse <- strsplit(deidentified_data_departmentName_filtered_cdw$CODED_VALUE_desc, ":")
+    deidentified_data_departmentName_filtered_cdw$drug <- sapply(drug_parse, function(x) trimws(x[2]))
+    logr::log_print("Creating a med base to simplify med naming. this likely needs work as it is not currently useful. A master conversion list would be better")
+    med_base <- strsplit(deidentified_data_departmentName_filtered_cdw$drug, split = " ")
+    deidentified_data_departmentName_filtered_cdw$med_base <- sapply(med_base, function(x) x[1])
+    deidentified_data_departmentName_filtered_cdw$med <- deidentified_data_departmentName_filtered_cdw$CODED_VALUE_desc
   }
 }, error = function(e) {
-  message("An error occurred Filtering and creating med base for epic data: ", e$message)
+  message("An error occurred filtering and creating med base for epic data: ", e$message)
   quit("no", status = 10)
 })
 
 logr::log_print("writing results")
 tryCatch(
   {
-    combo_med_given <- rbind(deidentified_data_departmentName_filtered_epic %>% select(deidentified_key,med_base, med ), deidentified_data_cdw_drug_rows_picu %>% select(deidentified_key,med_base, med ))
-    write.table(x = combo_med_given, file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+    combo_med_given <- rbind(deidentified_data_departmentName_filtered_epic %>% select(deidentified_key,med_base, med ), deidentified_data_departmentName_filtered_cdw %>% select(deidentified_key,med_base, med ))
+    write.table(x = combo_med_given, 
+                file = gzfile(here("Intermediate",paste0(time_case_prefix,"meds_given.tsv.gz"))), 
+                quote = FALSE, 
+                row.names = FALSE, 
+                col.names = TRUE, 
+                sep = "\t")
   }, error = function(e) {
     message("An error occurred writing results: ", e$message)
     quit("no", status = 10)

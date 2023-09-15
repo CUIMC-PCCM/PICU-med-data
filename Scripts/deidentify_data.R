@@ -183,11 +183,11 @@ logr::log_print("writing results")
 tryCatch({
   if(arguments$data_file_epic != "NA"){
     logr::log_print("writing epic results")
-    writing_deidentified_data(merge_df_epic, "epic")
+    writing_deidentified_data(merge_df_epic, "epic",arguments)
   } 
   if(arguments$data_file_epic != "NA"){
     logr::log_print("writing cdw results")
-    writing_deidentified_data(merge_df_cdw, "cdw")
+    writing_deidentified_data(merge_df_cdw, "cdw",arguments)
   } 
 }, error = function(e) {
   message("An error writing results: ", e$message)

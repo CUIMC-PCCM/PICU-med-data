@@ -18,7 +18,7 @@ check_mar_vs_identity_key <- function(mar_df, key_df){
   logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_df$identified_key_char[key_df$identified_key_char %!in%  mar_df$EMPI_char])))
 }
 
-writing_deidentified_data <- function(merge_df, cdw_epic){
+writing_deidentified_data <- function(merge_df, cdw_epic, arguments){
   new_names <- names(merge_df)
   new_names <- new_names[new_names != arguments$identity_header]
   write_df = subset(merge_df, select = c(new_names) )

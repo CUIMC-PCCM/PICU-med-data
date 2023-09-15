@@ -15,6 +15,7 @@ library(here)
 library(docopt)
 library(R.utils)
 library(DescTools)
+library(lubridate)
 source(here("Scripts","useful_functions.R"))
 "%!in%" <- Negate("%in%")
 arguments <- docopt(doc, version = 'meds_given.R')
@@ -29,7 +30,7 @@ if(arguments$debug == "TRUE"){
 }
 
 # Create time_stamp
-time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
+time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",round_date(Sys.time(), unit = "minutes")))), "_",arguments$project_name, "_")
 
 # Creating log file
 tryCatch({

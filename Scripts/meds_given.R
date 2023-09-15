@@ -27,7 +27,7 @@ if(arguments$debug == "TRUE"){
   arguments$project_name <- "PGX"
   arguments$epic_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
   arguments$epic_filename <- "2023_09_15_09_22_00_PGX_epic_deidentified_data.tsv.gz"
-  arguments$cdw_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU"
+  arguments$cdw_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU" #
   arguments$cdw_filename <- "2023_09_15_09_22_00_PGX_cdw_deidentified_data.tsv.gz"
 }
 
@@ -82,8 +82,10 @@ tryCatch({
   if(arguments$cdw_filename != "NA"){
     logr::log_print("Filtering and creating med base for cdw data")
     logr::log_print("Filtering for meds that were actually given and in the units specific")
+    # deidentified_data_cdw %>% filter(deidentified_key == "Diagseq1902f681",CODED_VALUE_desc %like% "Cerner Drug:%",EVENT_name %in% c("Completed Pharmacy Order","New Pharmacy Order"))
     deidentified_data_departmentName_filtered_cdw <- deidentified_data_cdw %>% 
-      filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name == "Completed Pharmacy Order",LOCATION_DESC %like any% c("CHILDREN%","CHONY%"), LOC__ROOM %like any% c("91%","90%","11%"))
+      filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name %in% c("Completed Pharmacy Order","New Pharmacy Order"), LOC__ROOM %like any% c("91%","90%","11%")) #,LOCATION_DESC %like any% c("CHILDREN%","CHONY%")
+    # deidentified_data_departmentName_filtered_cdw %>% filter(deidentified_key == "Diagseq1902f681")
     logr::log_print("Parsing out drug name")
     drug_parse <- strsplit(deidentified_data_departmentName_filtered_cdw$CODED_VALUE_desc, ":")
     deidentified_data_departmentName_filtered_cdw$drug <- sapply(drug_parse, function(x) trimws(x[2]))

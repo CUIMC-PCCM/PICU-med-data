@@ -30,6 +30,7 @@ tryCatch({
   library(parallel)
   library(DescTools)
   library(logr)
+  library(lubridate)
   source(here("Scripts","useful_functions.R"))
   source(here("Scripts","deidentify_data_functions.R"))
 }, error = function(e) {
@@ -54,11 +55,12 @@ if(arguments$debug == "TRUE"){
 
 
 # Create time_stamp
-time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",Sys.time()))), "_",arguments$project_name, "_")
+time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",round_date(Sys.time(), unit = "minutes")))), "_",arguments$project_name, "_")
 
 # Creating log file
 tryCatch({
-  initialize_logfile(arguments, "deidentify_data")
+  initialize_logfile(time_case_prefix, "deidentify_data")
+  logr::log_print(arguments)
 }, error = function(e) {
   message("An error occurred opening the log file: ", e$message)
   quit("no", status = 10)
@@ -134,10 +136,6 @@ tryCatch({
 logr::log_print("removing duplicate keys")
 tryCatch({
   key_data_unique <- key_data %>% filter(!is.na(identified_key), !is.na(deidentified_key)) %>% distinct(identified_key, .keep_all = TRUE)
-  # unique_keys <- length(unique(key_data_unique$identified_key))
-  # duplicate_keys <-  key_data$identified_key[duplicated(key_data$identified_key)]
-  # location_unique_keys <- as.character(identified_data[[c(arguments$identity_header)]]) %!in% as.character(duplicate_keys)
-  # identified_data_unique <- identified_data[location_unique_keys , ]
   nrow(key_data_unique)
   # nrow(identified_data_unique)
 }, error = function(e) {
@@ -145,61 +143,61 @@ tryCatch({
   quit("no", status = 10)
 })
 
+
 logr::log_print("identifying mrns missing between identify code and data")
 tryCatch({
-  logr::log_print("in MAR and key")
-  logr::log_print(length(mrn_in_key_and_mar <- unique(intersect(key_data_unique$identified_key_char,identified_data_cdw$EMPI_char))))
-  logr::log_print("in MAR but not in key")
-  logr::log_print(length(MAR_mrn_wo_deidentified_key <- unique(identified_data_unique$EMPI_char[identified_data_cdw$EMPI_char %!in% key_data$identified_key_char ])))
-  logr::log_print("in key but not in mrn")
-  logr::log_print(length(deidentified_key_mrn_wo_MAR <- unique(key_data$identified_key_char[key_data$identified_key_char %!in%  identified_data_unique$EMPI_char])))
+  if(arguments$data_file_epic != "NA"){
+    logr::log_print("checking epic data")
+    check_mar_vs_identity_key(identified_data_epic,key_data_unique)
+  }
+  if(arguments$data_file_cdw != "NA"){
+    logr::log_print("checking cdw data")
+    check_mar_vs_identity_key(identified_data_cdw,key_data_unique)
+  }
+  if(arguments$data_file_epic != "NA" && arguments$data_file_cdw != "NA"){
+    logr::log_print("checking union of epic and cdw data")
+    check_mar_vs_identity_key(rbind(identified_data_epic %>% select(EMPI_char),identified_data_cdw %>% select(EMPI_char)),key_data_unique)
+  }
 }, error = function(e) {
   message("An error identifying mrns missing between identify code and data: ", e$message)
   quit("no", status = 10)
 })
 
 logr::log_print("adding deidentified code")
-tryCatch(
-  {
-    nrow(merge_df <- merge(identified_data_unique,key_data, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
-    logr::log_print(length(unique(merge_df$EMPI_char)))
-    # identified_data$deidentified_id <- sapply(identified_data[[c(arguments$identity_header)]], function(x) key_data$deidentified_key[key_data$identified_key == x])
-  }, 
-  error=function(e){
-    message("error creating deidentified key")
-    logr::log_print(e)
-  },
-  warning=function(w) {
-    message('A Warning occurred creating deidentified key')
-    logr::log_print(w)
+tryCatch({
+  if(arguments$data_file_epic != "NA"){
+    logr::log_print("adding deidentified code to epic data")
+    nrow(merge_df_epic <- merge(identified_data_epic,key_data_unique, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
   }
-)
+  if(arguments$data_file_cdw != "NA"){
+    logr::log_print("adding deidentified code to cdw data")
+    nrow(merge_df_cdw <- merge(identified_data_cdw,key_data_unique, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
+  }
+}, error = function(e) {
+  message("An error adding deidentified code: ", e$message)
+  quit("no", status = 10)
+})
+
 
 logr::log_print("writing results")
-tryCatch(
-  {
-    new_names <- names(merge_df)
-    new_names <- new_names[new_names != arguments$identity_header]
-    write_df = subset(merge_df, select = c(new_names) )
-    write_df$EMPI_char <- NULL
-    write_df$identified_key <- NULL
-    write.table(x = write_df %>% filter(!is.na(deidentified_key)), file = gzfile(here("Intermediate",paste0(time_case_prefix,"deidentified_data.tsv.gz"))), quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
-    # write.csv(x = write_df, file = here("Intermediate","deidentified_data.csv"), quote = FALSE, row.names = FALSE, col.names = TRUE)
-    # write.table()
-  }, 
-  error=function(e){
-    message("error writing deidentified data")
-    logr::log_print(e)
-    stop("stoped during writing deidentified data")
-  }
-  # ,
-  # warning=function(w) {
-  #   message('A Warning occurred writing deidentified data')
-  #   logr::log_print(w)
-  #   return(NA)
-  # }
-)
+tryCatch({
+  if(arguments$data_file_epic != "NA"){
+    logr::log_print("writing epic results")
+    writing_deidentified_data(merge_df_epic, "epic")
+  } 
+  if(arguments$data_file_epic != "NA"){
+    logr::log_print("writing cdw results")
+    writing_deidentified_data(merge_df_cdw, "cdw")
+  } 
+}, error = function(e) {
+  message("An error writing results: ", e$message)
+  quit("no", status = 10)
+})
 
-
-logr::log_print("Finished")
-logr::log_close()
+tryCatch({
+  logr::log_print("Finished")
+  logr::log_close()
+}, error = function(e) {
+  message("Caught an error closing the log file: ", e$message)
+  quit("no", status = 10)
+})

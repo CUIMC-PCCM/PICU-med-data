@@ -1,7 +1,7 @@
 # deidentify_data.R: loads in identified data and substitutes new ID.
 
 'Usage: 
-  deidentify_data.R --data_file_epic=<data_file_epic> --data_file_cdw=<data_file_cdw> --key_data_file=<key_data_file> --identity_header=<identity_header> [--project_name=<project_name>] [--data_file_cdw_loc=<data_file_cdw_loc>] [--debug=<debug>]
+  deidentify_data.R --data_file_epic=<data_file_epic> --data_file_cdw=<data_file_cdw> --key_data_file=<key_data_file> --identity_header=<identity_header> [--project_name=<project_name>] [--data_file_cdw_loc=<data_file_cdw_loc>] [--star_allele_deidentify_key_list=<star_allele_deidentify_key_list>] [--debug=<debug>]
 
   
   Options:
@@ -12,6 +12,7 @@
   --identity_header=<identity_header> column header of mrn
   --data_file_cdw_loc=<data_file_cdw_loc> name of location data for CDW [default: NA]
   --project_name=<project_name> label for analysis. example might "picu" or "IPF" [default: temp_case]
+  --star_allele_deidentify_key_list=<star_allele_deidentify_key_list> [default: NA]
   --debug=<debug> [default: FALSE]
 
 ' -> doc
@@ -49,6 +50,7 @@ if(arguments$debug == "TRUE"){
   arguments$key_data_file <- "2023_09_14_17_29_34.859167_identity_key.csv"
   arguments$identity_header <- "EMPI"
   arguments$project_name <- "PGX"
+  arguments$star_allele_deidentify_key_list <- "list_of_star_alleles.txt"
 }
 
 
@@ -160,7 +162,6 @@ tryCatch({
   quit("no", status = 10)
 })
 
-
 logr::log_print("identifying mrns missing between identify code and data")
 tryCatch({
   if(arguments$data_file_epic != "NA"){
@@ -195,7 +196,6 @@ tryCatch({
   quit("no", status = 10)
 })
 
-
 logr::log_print("writing results")
 tryCatch({
   if(arguments$data_file_epic != "NA"){
@@ -212,9 +212,53 @@ tryCatch({
 })
 
 tryCatch({
+  logr::log_print("checking MAR against pgx data")
+  if(arguments$star_allele_deidentify_key != "NA"){
+    pgx_sample_internal_names_df <- read.table(file = here("Input",arguments$star_allele_deidentify_key), header = FALSE)
+    pgx_sample_internal_names <- pgx_sample_internal_names_df$V1
+    if(arguments$data_file_epic != "NA"){
+      logr::log_print("checking epic data")
+      check_mar_vs_pgx_variants(merge_df_epic,pgx_sample_internal_names)
+    }
+    if(arguments$data_file_cdw != "NA"){
+      logr::log_print("checking cdw data")
+      check_mar_vs_pgx_variants(merge_df_cdw,pgx_sample_internal_names)
+    }
+    if(arguments$data_file_epic != "NA" && arguments$data_file_cdw != "NA"){
+      logr::log_print("checking union of epic and cdw data")
+      check_mar_vs_pgx_variants(rbind(merge_df_epic %>% select(deidentified_key),merge_df_cdw %>% select(deidentified_key)),pgx_sample_internal_names)
+    }
+  } else {
+    logr::log_print("no list of pgx identities provided")
+  }
+
+}, error = function(e) {
+  message("Caught an error checking MAR against pgx data: ", e$message)
+  quit("no", status = 10)
+})
+
+tryCatch({
   logr::log_print("Finished")
   logr::log_close()
+  quit()
 }, error = function(e) {
   message("Caught an error closing the log file: ", e$message)
   quit("no", status = 10)
 })
+
+# debug
+merge_df_epic %>% filter(EMPI_char == "1200551071")
+merge_df_cdw %>% filter(EMPI_char == "1200551071")
+
+temp <- read.table(here("Input",arguments$data_file_cdw), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE) %>% 
+  mutate(year = substring(PRIMARY_TIME, 1, 4), month = substring(PRIMARY_TIME, 6, 7), day = substr(PRIMARY_TIME, 9, 10), hr = substring(PRIMARY_TIME, 12, 13), min = substring(PRIMARY_TIME, 15, 16), sec = paste0(substring(PRIMARY_TIME, 18, 19),
+                                                                                                                                                                                                                   substring(PRIMARY_TIME, 21, 26))) %>% mutate(time_stamp=paste0(year,month,day,hr,min,sec))
+View(temp %>% filter(EMPI == "1201193068",PRIMARY_TIME != ""))
+#,CODED_VALUE_desc %like% "Cerner Drug:%") %>% 
+  # filter(PRIMARY_TIME != "",CODED_VALUE_desc %like% "Cerner Drug:%")
+
+# bed list for noelle
+med_list_for_noelle <- sort(c(unique(merge_df_cdw$CODED_VALUE_desc),
+                                     unique(merge_df_epic$marOrder_displayName)))
+write.table(med_list_for_noelle, file = here("Intermediate",paste0(time_case_prefix,"med_list_for_noelle.txt")), quote = FALSE, col.names = FALSE, row.names = FALSE)
+

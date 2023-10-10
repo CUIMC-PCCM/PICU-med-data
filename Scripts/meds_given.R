@@ -82,7 +82,7 @@ tryCatch({
   if(arguments$cdw_filename != "NA"){
     logr::log_print("Filtering and creating med base for cdw data")
     logr::log_print("Filtering for meds that were actually given and in the units specific")
-    # deidentified_data_cdw %>% filter(deidentified_key == "Diagseq1902f681",CODED_VALUE_desc %like% "Cerner Drug:%",EVENT_name %in% c("Completed Pharmacy Order","New Pharmacy Order"))
+    deidentified_data_cdw %>% filter(deidentified_key == "Diagseq2002f727",CODED_VALUE_desc %like% "Cerner Drug:%",EVENT_name %in% c("Completed Pharmacy Order","New Pharmacy Order"))
     deidentified_data_departmentName_filtered_cdw <- deidentified_data_cdw %>% 
       filter(CODED_VALUE_desc %like% "Cerner Drug:%", EVENT_name %in% c("Completed Pharmacy Order","New Pharmacy Order"), LOC__ROOM %like any% c("91%","90%","11%")) #,LOCATION_DESC %like any% c("CHILDREN%","CHONY%")
     # deidentified_data_departmentName_filtered_cdw %>% filter(deidentified_key == "Diagseq1902f681")

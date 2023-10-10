@@ -21,8 +21,6 @@
 # --key_data_file=<key_data_file> csv file with two columns. headers should be identified_key and deidentified_key. name of file. should be located in Input
 #
 tryCatch({
-  
-  library(tidyverse)
   library(data.table)
   here::i_am("Scripts/deidentify_data.R")
   library(here)
@@ -31,6 +29,7 @@ tryCatch({
   library(DescTools)
   library(logr)
   library(lubridate)
+  library(tidyverse)
   source(here("Scripts","useful_functions.R"))
   source(here("Scripts","deidentify_data_functions.R"))
 }, error = function(e) {
@@ -112,10 +111,28 @@ tryCatch({
       filter(LOC__DATE != "") %>% arrange(time_stamp)
     cdw_loc[[paste0(arguments$identity_header,"_char")]] <- as.character(cdw_loc$EMPI)
       
-      room_list <- mclapply(1:nrow(identified_data_cdw), 
-                            function(y) return_room_location(y,identified_data_cdw,cdw_loc), 
+      # room_list <- lapply(1:nrow(identified_data_cdw), 
+      #                       function(y) return_room_location(y,identified_data_cdw,cdw_loc))
+      room_list <- mclapply(1:nrow(identified_data_cdw),
+                            function(y) return_room_location(y,identified_data_cdw,cdw_loc),
                             mc.cores = detectCores(logical = FALSE)-1 )
+      
+      # Step 1: Set up and register a parallel cluster
+      cl <- makeCluster(detectCores(logical = FALSE) - 1)
+      clusterExport(cl, c("identified_data_cdw", "cdw_loc", "return_room_location"))
+      
+      # Step 2 & 3: Use parLapply to parallelize your operation
+      room_list <- parLapply(cl, 1:nrow(identified_data_cdw), function(y) {
+        return_room_location(y, identified_data_cdw, cdw_loc)
+      })
+      
+      # Stop the cluster
+      stopCluster(cl)
+      
+      # save temp file
+      saveRDS(room_list, here("Intermediate",paste0(time_case_prefix,"room_list.rds")))
       identified_data_cdw$LOC__ROOM <- unlist(room_list)
+      saveRDS(identified_data_cdw, here("Intermediate",paste0(time_case_prefix,"cdw_data_w_room_list.rds")))
       logr::log_print("finished room number for cdw data")
   }
 }, error=function(e){

@@ -29,6 +29,8 @@ if(arguments$debug == "TRUE"){
   arguments$epic_filename <- "2023_10_06_14_43_00_PGX_epic_deidentified_data.tsv.gz"
   arguments$cdw_visit_departmentName <- "MSCH 9 TOWER,MSCH 11 CENTRAL,MSCH 9 CENTRAL PICU" #
   arguments$cdw_filename <- "2023_10_06_14_43_00_PGX_cdw_deidentified_data.tsv.gz"
+  arguments$star_allele_deidentify_key_list <- "list_of_star_alleles.txt"
+  arguments$key_data_file <- "2023_09_14_17_29_34.859167_identity_key.csv"
 }
 
 # Create time_stamp
@@ -125,11 +127,48 @@ tryCatch({
 tryCatch({
   logr::log_print("Finished")
   logr::log_close()
+  quit()
 }, error = function(e) {
   message("Caught an error closing the log file: ", e$message)
   quit("no", status = 10)
 })
 
 #debug
+logr::log_print("loading in key data")
+tryCatch({
+  key_data <- fread(here("Input", arguments$key_data_file))
+  key_data$identified_key_char <- as.character(key_data$identified_key)
+  logr::log_print("success loading in key data")
+}, error = function(e) {
+  message("An error occurred loading in key data: ", e$message)
+  quit("no", status = 10)
+})
+
+logr::log_print("removing duplicate keys")
+tryCatch({
+  key_data_unique <- key_data %>% filter(!is.na(identified_key), !is.na(deidentified_key)) %>% distinct(identified_key, .keep_all = TRUE)
+  nrow(key_data_unique)
+  # nrow(identified_data_unique)
+}, error = function(e) {
+  message("An error occurred removing duplicate keys: ", e$message)
+  quit("no", status = 10)
+})
+
+tryCatch({
+  logr::log_print("checking MAR against pgx data")
+  if(arguments$star_allele_deidentify_key != "NA"){
+    pgx_sample_internal_names_df <- read.table(file = here("Input", arguments$star_allele_deidentify_key_list), header = FALSE)
+    length(pgx_sample_internal_names <- (pgx_sample_internal_names_df %>% filter(V1 %in% key_data_unique$deidentified_key))$V1)
+    
+    setdiff(unique(combo_med_given$deidentified_key), pgx_sample_internal_names)
+    setdiff( pgx_sample_internal_names, unique(combo_med_given$deidentified_key))
+    setdiff(c(unique(deidentified_data_epic$deidentified_key), unique(deidentified_data_cdw$deidentified_key)), pgx_sample_internal_names)
+  }
+  
+}, error = function(e) {
+  message("Caught an error closing the log file: ", e$message)
+  quit("no", status = 10)
+})
+
 View(deidentified_data_cdw %>% filter(deidentified_key == "Diagseq2813f1063"))
 View(deidentified_data_epic %>% filter(deidentified_key == "Diagseq2813f1063"))

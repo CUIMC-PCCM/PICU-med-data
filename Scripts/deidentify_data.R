@@ -214,7 +214,7 @@ tryCatch({
 tryCatch({
   logr::log_print("checking MAR against pgx data")
   if(arguments$star_allele_deidentify_key != "NA"){
-    pgx_sample_internal_names_df <- read.table(file = here("Input",arguments$star_allele_deidentify_key), header = FALSE)
+    pgx_sample_internal_names_df <- read.table(file = here("Input", arguments$star_allele_deidentify_key_list), header = FALSE)
     pgx_sample_internal_names <- pgx_sample_internal_names_df$V1
     if(arguments$data_file_epic != "NA"){
       logr::log_print("checking epic data")
@@ -253,7 +253,7 @@ merge_df_cdw %>% filter(EMPI_char == "1200551071")
 temp <- read.table(here("Input",arguments$data_file_cdw), header = TRUE, sep = "\t", quote = "", as.is = TRUE, fill = TRUE) %>% 
   mutate(year = substring(PRIMARY_TIME, 1, 4), month = substring(PRIMARY_TIME, 6, 7), day = substr(PRIMARY_TIME, 9, 10), hr = substring(PRIMARY_TIME, 12, 13), min = substring(PRIMARY_TIME, 15, 16), sec = paste0(substring(PRIMARY_TIME, 18, 19),
                                                                                                                                                                                                                    substring(PRIMARY_TIME, 21, 26))) %>% mutate(time_stamp=paste0(year,month,day,hr,min,sec))
-View(temp %>% filter(EMPI == "1201193068",PRIMARY_TIME != ""))
+View(temp %>% filter(EMPI == "1200551071")) #,PRIMARY_TIME != ""
 #,CODED_VALUE_desc %like% "Cerner Drug:%") %>% 
   # filter(PRIMARY_TIME != "",CODED_VALUE_desc %like% "Cerner Drug:%")
 

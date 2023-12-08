@@ -51,8 +51,6 @@ if(arguments$debug == "TRUE"){
   arguments$project_name <- "PGX"
 }
 
-
-
 # Create time_stamp
 time_case_prefix <- paste0(gsub(":","_",  gsub(" ","_", gsub("-","_",round_date(Sys.time(), unit = "minutes")))), "_",arguments$project_name, "_")
 
@@ -134,6 +132,7 @@ tryCatch({
       identified_data_cdw$LOC__ROOM <- unlist(room_list)
       saveRDS(identified_data_cdw, here("Intermediate",paste0(time_case_prefix,"cdw_data_w_room_list.rds")))
       logr::log_print("finished room number for cdw data")
+
   }
 }, error=function(e){
   message("An error occurred adding room number for cdw data: ", e$message)
@@ -148,6 +147,7 @@ tryCatch({
 }, error = function(e) {
   message("An error occurred loading in key data: ", e$message)
   quit("no", status = 10)
+
 })
 
 logr::log_print("removing duplicate keys")
@@ -189,6 +189,7 @@ tryCatch({
   if(arguments$data_file_cdw != "NA"){
     logr::log_print("adding deidentified code to cdw data")
     nrow(merge_df_cdw <- merge(identified_data_cdw,key_data_unique, by.x = paste0(arguments$identity_header,"_char"), by.y = "identified_key_char", all.x = TRUE))
+
   }
 }, error = function(e) {
   message("An error adding deidentified code: ", e$message)
